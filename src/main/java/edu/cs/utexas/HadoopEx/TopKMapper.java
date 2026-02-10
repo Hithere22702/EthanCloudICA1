@@ -17,9 +17,11 @@ public class TopKMapper extends Mapper<Text, Text, Text, IntWritable> {
 
 
 	private PriorityQueue<WordAndCount> pq;
+	private int topK;
 
 	public void setup(Context context) {
 		pq = new PriorityQueue<>();
+		topK = Math.max(1, context.getConfiguration().getInt("topk", 10));
 
 	}
 
@@ -37,7 +39,7 @@ public class TopKMapper extends Mapper<Text, Text, Text, IntWritable> {
 
 		pq.add(new WordAndCount(new Text(key), new IntWritable(count)) );
 
-		if (pq.size() > 10) {
+		if (pq.size() > topK) {
 			pq.poll();
 		}
 	}

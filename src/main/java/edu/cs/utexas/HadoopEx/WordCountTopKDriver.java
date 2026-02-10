@@ -9,8 +9,8 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
@@ -34,56 +34,94 @@ public class WordCountTopKDriver extends Configured implements Tool {
 	 */
 	public int run(String args[]) {
 		try {
-			Configuration conf = new Configuration();
+			if (args.length < 3) {
+				System.err.println("Usage: <input> <intermediate> <outputBase> [topK] [ratioScale]");
+				return 2;
+			}
 
-			Job job = new Job(conf, "WordCount");
-			job.setJarByClass(WordCountTopKDriver.class);
+			String input = args[0];
+			String intermediate = args[1];
+			String baseOutput = args[2];
+			int topK = (args.length > 3) ? Integer.parseInt(args[3]) : 3;
+			int ratioScale = (args.length > 4) ? Integer.parseInt(args[4]) : 100;
 
-			// specify a Mapper
-			job.setMapperClass(WordCountMapper.class);
+			Path airportOut = new Path(intermediate + "/airport-count");
+			Path airportTopkOut = new Path(baseOutput + "/airport-topk");
+			Path airlineOut = new Path(intermediate + "/airline-ratio");
+			Path airlineTopkOut = new Path(baseOutput + "/airline-topk");
 
-			// specify a Reducer
-			job.setReducerClass(WordCountReducer.class);
+			// Task 1: count flights per origin airport
+			Configuration airportConf = new Configuration();
+			airportConf.set("mode", "airport");
+			Job airportJob = new Job(airportConf, "AirportFlightCount");
+			airportJob.setJarByClass(WordCountTopKDriver.class);
+			airportJob.setMapperClass(WordCountMapper.class);
+			airportJob.setCombinerClass(WordCountReducer.class);
+			airportJob.setReducerClass(WordCountReducer.class);
+			airportJob.setOutputKeyClass(Text.class);
+			airportJob.setOutputValueClass(IntWritable.class);
+			airportJob.setInputFormatClass(TextInputFormat.class);
+			airportJob.setOutputFormatClass(TextOutputFormat.class);
+			FileInputFormat.addInputPath(airportJob, new Path(input));
+			FileOutputFormat.setOutputPath(airportJob, airportOut);
 
-			// specify output types
-			job.setOutputKeyClass(Text.class);
-			job.setOutputValueClass(IntWritable.class);
-
-			// specify input and output directories
-			FileInputFormat.addInputPath(job, new Path(args[0]));
-			job.setInputFormatClass(TextInputFormat.class);
-
-			FileOutputFormat.setOutputPath(job, new Path(args[1]));
-			job.setOutputFormatClass(TextOutputFormat.class);
-
-			if (!job.waitForCompletion(true)) {
+			if (!airportJob.waitForCompletion(true)) {
 				return 1;
 			}
 
-			Job job2 = new Job(conf, "TopK");
-			job2.setJarByClass(WordCountTopKDriver.class);
+			Configuration airportTopConf = new Configuration();
+			airportTopConf.setInt("topk", topK);
+			Job airportTopJob = new Job(airportTopConf, "AirportTopK");
+			airportTopJob.setJarByClass(WordCountTopKDriver.class);
+			airportTopJob.setMapperClass(TopKMapper.class);
+			airportTopJob.setReducerClass(TopKReducer.class);
+			airportTopJob.setOutputKeyClass(Text.class);
+			airportTopJob.setOutputValueClass(IntWritable.class);
+			airportTopJob.setNumReduceTasks(1);
+			airportTopJob.setInputFormatClass(KeyValueTextInputFormat.class);
+			airportTopJob.setOutputFormatClass(TextOutputFormat.class);
+			FileInputFormat.addInputPath(airportTopJob, airportOut);
+			FileOutputFormat.setOutputPath(airportTopJob, airportTopkOut);
 
-			// specify a Mapper
-			job2.setMapperClass(TopKMapper.class);
+			if (!airportTopJob.waitForCompletion(true)) {
+				return 1;
+			}
 
-			// specify a Reducer
-			job2.setReducerClass(TopKReducer.class);
+			// Task 2: airline delay ratio (sum delays / flight count)
+			Configuration airlineConf = new Configuration();
+			airlineConf.set("mode", "airline");
+			airlineConf.setInt("ratio.scale", ratioScale);
+			Job airlineJob = new Job(airlineConf, "AirlineDelayRatio");
+			airlineJob.setJarByClass(WordCountTopKDriver.class);
+			airlineJob.setMapperClass(WordCountMapper.class);
+			// No combiner to avoid skewing ratio
+			airlineJob.setReducerClass(WordCountReducer.class);
+			airlineJob.setOutputKeyClass(Text.class);
+			airlineJob.setOutputValueClass(IntWritable.class);
+			airlineJob.setInputFormatClass(TextInputFormat.class);
+			airlineJob.setOutputFormatClass(TextOutputFormat.class);
+			FileInputFormat.addInputPath(airlineJob, new Path(input));
+			FileOutputFormat.setOutputPath(airlineJob, airlineOut);
 
-			// specify output types
-			job2.setOutputKeyClass(Text.class);
-			job2.setOutputValueClass(IntWritable.class);
+			if (!airlineJob.waitForCompletion(true)) {
+				return 1;
+			}
 
-			// set the number of reducer to 1
-			job2.setNumReduceTasks(1);
+			Configuration airlineTopConf = new Configuration();
+			airlineTopConf.setInt("topk", topK);
+			Job airlineTopJob = new Job(airlineTopConf, "AirlineTopK");
+			airlineTopJob.setJarByClass(WordCountTopKDriver.class);
+			airlineTopJob.setMapperClass(TopKMapper.class);
+			airlineTopJob.setReducerClass(TopKReducer.class);
+			airlineTopJob.setOutputKeyClass(Text.class);
+			airlineTopJob.setOutputValueClass(IntWritable.class);
+			airlineTopJob.setNumReduceTasks(1);
+			airlineTopJob.setInputFormatClass(KeyValueTextInputFormat.class);
+			airlineTopJob.setOutputFormatClass(TextOutputFormat.class);
+			FileInputFormat.addInputPath(airlineTopJob, airlineOut);
+			FileOutputFormat.setOutputPath(airlineTopJob, airlineTopkOut);
 
-			// specify input and output directories
-			FileInputFormat.addInputPath(job2, new Path(args[1]));
-			job2.setInputFormatClass(KeyValueTextInputFormat.class);
-
-			FileOutputFormat.setOutputPath(job2, new Path(args[2]));
-			job2.setOutputFormatClass(TextOutputFormat.class);
-
-			return (job2.waitForCompletion(true) ? 0 : 1);
+			return (airlineTopJob.waitForCompletion(true) ? 0 : 1);
 
 		} catch (InterruptedException | ClassNotFoundException | IOException e) {
 			System.err.println("Error during driver job.");

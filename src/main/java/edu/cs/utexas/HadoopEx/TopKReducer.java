@@ -17,16 +17,17 @@ import java.util.Iterator;
 
 public class TopKReducer extends  Reducer<Text, IntWritable, Text, IntWritable> {
 
-    private PriorityQueue<WordAndCount> pq = new PriorityQueue<WordAndCount>(10);;
+    private PriorityQueue<WordAndCount> pq = new PriorityQueue<WordAndCount>(10);
+    private int topK;
 
 
     private Logger logger = Logger.getLogger(TopKReducer.class);
 
 
-//    public void setup(Context context) {
-//
-//        pq = new PriorityQueue<WordAndCount>(10);
-//    }
+    public void setup(Context context) {
+        pq = new PriorityQueue<WordAndCount>(10);
+        topK = Math.max(1, context.getConfiguration().getInt("topk", 10));
+    }
 
 
     /**
@@ -58,7 +59,7 @@ public class TopKReducer extends  Reducer<Text, IntWritable, Text, IntWritable> 
        }
 
        // keep the priorityQueue size <= heapSize
-       while (pq.size() > 10) {
+       while (pq.size() > topK) {
            pq.poll();
        }
 
