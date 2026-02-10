@@ -1,7 +1,0 @@
-edu\cs\utexas\HadoopEx\AirportCountMapper.class
-edu\cs\utexas\HadoopEx\WordCountMapper.class
-edu\cs\utexas\HadoopEx\WordCountTopKDriver.class
-edu\cs\utexas\HadoopEx\TopKReducer.class
-edu\cs\utexas\HadoopEx\WordCountReducer.class
-edu\cs\utexas\HadoopEx\WordAndCount.class
-edu\cs\utexas\HadoopEx\TopKMapper.class

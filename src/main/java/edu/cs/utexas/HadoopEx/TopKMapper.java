@@ -33,9 +33,25 @@ public class TopKMapper extends Mapper<Text, Text, Text, IntWritable> {
 	 */
 	public void map(Text key, Text value, Context context)
 			throws IOException, InterruptedException {
+		String raw = value.toString().trim();
+		if (raw.isEmpty()) {
+			return;
+		}
 
-
-		int count = Integer.parseInt(value.toString());
+		int count;
+		try {
+			// Allow both integer counts and scaled ratios; fall back to parsing as double if needed
+			count = Integer.parseInt(raw);
+		} catch (NumberFormatException ex) {
+			try {
+				double parsed = Double.parseDouble(raw);
+				count = (int) Math.round(parsed);
+			} catch (NumberFormatException ignored) {
+				// Skip malformed rows instead of failing the job
+				logger.warn("TopKMapper skipping non-numeric value: " + raw);
+				return;
+			}
+		}
 
 		pq.add(new WordAndCount(new Text(key), new IntWritable(count)) );
 

@@ -21,8 +21,14 @@ Specify your own Output directory like
 
 # Running:
 
+Outputs: output/airline-topk/part-r-00000 and output/airport-topk/part-r-00000
+ATL	346836
+ORD	285884
+DFW	239551
 
-
+NK	15.91
+UA	14.38
+F9	13.32
 
 ## Create a JAR Using Maven 
 

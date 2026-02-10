@@ -109,12 +109,14 @@ public class WordCountTopKDriver extends Configured implements Tool {
 
 			Configuration airlineTopConf = new Configuration();
 			airlineTopConf.setInt("topk", topK);
+			airlineTopConf.setInt("ratio.scale", ratioScale);
 			Job airlineTopJob = new Job(airlineTopConf, "AirlineTopK");
 			airlineTopJob.setJarByClass(WordCountTopKDriver.class);
 			airlineTopJob.setMapperClass(TopKMapper.class);
-			airlineTopJob.setReducerClass(TopKReducer.class);
+			airlineTopJob.setReducerClass(TopKReducerDouble.class);
 			airlineTopJob.setOutputKeyClass(Text.class);
-			airlineTopJob.setOutputValueClass(IntWritable.class);
+			airlineTopJob.setOutputValueClass(org.apache.hadoop.io.DoubleWritable.class);
+			airlineTopJob.setMapOutputValueClass(IntWritable.class);
 			airlineTopJob.setNumReduceTasks(1);
 			airlineTopJob.setInputFormatClass(KeyValueTextInputFormat.class);
 			airlineTopJob.setOutputFormatClass(TextOutputFormat.class);
